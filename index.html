@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>MP3X Audio Converter, LowBit</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
+
+  <style>
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      margin: 0;
+      padding: 12px;
+      color: #111;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: white;
+      border: 1px solid #dcdcdc;
+      padding: 16px;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 26px;
+    }
+
+    .subtitle {
+      color: #555;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .box {
+      margin-bottom: 18px;
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      font-size: 16px;
+      margin-top: 8px;
+      border: 1px solid #ccc;
+      background: white;
+    }
+
+    button {
+      background: #0044cc;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: gray;
+      cursor: not-allowed;
+    }
+
+    #status {
+      margin-top: 20px;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    #download {
+      display: none;
+      margin-top: 18px;
+      background: #008000;
+      color: white;
+      text-decoration: none;
+      padding: 14px;
+      text-align: center;
+      display: block;
+    }
+
+    .footer {
+      margin-top: 30px;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+      font-size: 12px;
+      color: #666;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <h1>MP3X AUDIO CONVERTER</h1>
+
+    <div class="subtitle">
+      Upload audio files and reduce bitrate for smaller file size.
+    </div>
+
+    <div class="box">
+      Upload MP3 File
+
+      <input type="file" id="audioInput" accept="audio/*">
+    </div>
+
+    <div class="box">
+      Select Bitrate
+
+      <select id="bitrate">
+        <option value="24k">24 kbps</option>
+        <option value="32k">32 kbps</option>
+        <option value="48k" selected>48 kbps</option>
+        <option value="64k">64 kbps</option>
+        <option value="96k">96 kbps</option>
+        <option value="128k">128 kbps</option>
+      </select>
+    </div>
+
+    <div class="box">
+      Estimated Output Size
+
+      <div id="estimate">
+        Upload audio first...
+      </div>
+    </div>
+
+    <button id="convertBtn">
+      Convert Audio
+    </button>
+
+    <div id="status"></div>
+
+    <a id="download" download="converted.mp3">
+      Download Converted Audio
+    </a>
+
+    <div class="footer">
+      Powered by MP3X
+    </div>
+
+  </div>
+
+  <script>
+
+    const audioInput =
+      document.getElementById('audioInput');
+
+    const bitrateSelect =
+      document.getElementById('bitrate');
+
+    const convertBtn =
+      document.getElementById('convertBtn');
+
+    const statusBox =
+      document.getElementById('status');
+
+    const estimateBox =
+      document.getElementById('estimate');
+
+    const downloadBtn =
+      document.getElementById('download');
+
+    let uploadedFile = null;
+
+    audioInput.addEventListener('change', () => {
+
+      uploadedFile = audioInput.files[0];
+
+      if (!uploadedFile) return;
+
+      updateEstimate();
+
+    });
+
+    bitrateSelect.addEventListener('change', () => {
+
+      if (uploadedFile) {
+        updateEstimate();
+      }
+
+    });
+
+    function updateEstimate() {
+
+      const bitrate =
+        parseInt(bitrateSelect.value);
+
+      const originalSizeMB =
+        uploadedFile.size / (1024 * 1024);
+
+      const estimated =
+        (originalSizeMB * bitrate) / 128;
+
+      estimateBox.innerText =
+        '~ ' + estimated.toFixed(2) + ' MB';
+
+    }
+
+    convertBtn.addEventListener('click', async () => {
+
+      if (!uploadedFile) {
+
+        alert('Upload audio first.');
+
+        return;
+      }
+
+      convertBtn.disabled = true;
+
+      statusBox.innerText =
+        'Loading converter...';
+
+      const { createFFmpeg, fetchFile } = FFmpeg;
+
+      const ffmpeg = createFFmpeg({
+        log: true
+      });
+
+      await ffmpeg.load();
+
+      statusBox.innerText =
+        'Processing audio...';
+
+      ffmpeg.FS(
+        'writeFile',
+        uploadedFile.name,
+        await fetchFile(uploadedFile)
+      );
+
+      const outputName =
+        'converted.mp3';
+
+      await ffmpeg.run(
+        '-i',
+        uploadedFile.name,
+        '-ac',
+        '1',
+        '-b:a',
+        bitrateSelect.value,
+        outputName
+      );
+
+      const data =
+        ffmpeg.FS('readFile', outputName);
+
+      const url = URL.createObjectURL(
+        new Blob([data.buffer], {
+          type: 'audio/mpeg'
+        })
+      );
+
+      downloadBtn.href = url;
+
+      downloadBtn.style.display = 'block';
+
+      statusBox.innerText =
+        'Conversion complete.';
+
+      convertBtn.disabled = false;
+
+    });
+
+  </script>
+
+</body>
+</html>
